@@ -41,8 +41,7 @@ namespace GasSimulation
 						r = r0 + r1 + r2;
 						output << r;
 					}
-				}
-				
+				}	
 			}
 			output.close();	
 		}
@@ -50,9 +49,9 @@ namespace GasSimulation
 		void CalculateInitialMomentum(std::string outputFileName)	
 		{
 			std::vector<Utils::Vector<T>> momentums;
-			momentums.reserve(n);
-			Utils::Vector<T> momentumSum;
 			const int N = (int)pow(n,3);
+			momentums.reserve(N);
+			Utils::Vector<T> momentumSum;
 			for(int i = 0; i < N; ++i)
 			{
 				Utils::Vector<T> p;
