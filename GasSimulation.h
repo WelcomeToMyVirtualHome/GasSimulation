@@ -18,24 +18,36 @@ namespace GasSimulation
 	public:
 		Gas() { srand48(time(NULL)); }
 		Utils::BaseVector<T> base;
-		const int n = 5;
-		const int N = (int)pow(n,3);
+		const int n = 5; // number of particles in one dimension
+		const int N = (int)pow(n,3); // number of all particles
 		const T T0 = 100; // [K]
 		const T m = 39.948; // [au]
-		const T kb = 0.00831;
+		const T k_b = 0.00831;
 		const T a = 0.38; // [um]
 		const T epsilon = 1;
 		const T R = 0.38; // [nm]
 		const T L = 2.3; // [nm]
 		const T f = 10000;
+		const T tau = 0.01; // dt [ps]
+		const int s_d = 1000; // number of iterations of simulation
+		const int s_0 = 1000; 
+		const int s_xyz = 10; // xyz.dat: positions saved every 10 iterations
+		const int s_out = 100; // out.dat: info saved every 100 iterations
 		std::vector<Utils::Vector<T>> r;
 		std::vector<Utils::Vector<T>> p;
 		std::vector<Utils::Vector<T>> F;
 		T V;
+		T T_temp;
+		T E_k;
+		T E_tot;
+		T P;
+		T t;
 
-		const char* R_FILE = "r.dat";
-		const char* P_FILE = "p.dat";
-		const char* F_FILE = "F.dat";
+		const char* R_FILE = "r.dat"; // initial positions
+		const char* P_FILE = "p.dat"; // initial momentums
+		const char* F_FILE = "F.dat"; // initial forces
+		const char* XYZ_FILE = "xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
+		const char* OUT_FILE = "out.dat"; // format "t V E_k E_tot T P"
 
 		void CalculateInitialPositions()
 		{	
@@ -64,9 +76,9 @@ namespace GasSimulation
 			for(int i = 0; i < N; ++i)
 			{
 				Utils::Vector<T> p_i;
-				p_i.x1 = sqrt(-m*kb*T0*log(drand48()));
-				p_i.x2 = sqrt(-m*kb*T0*log(drand48()));
-				p_i.x3 = sqrt(-m*kb*T0*log(drand48()));		
+				p_i.x1 = sqrt(-m*k_b*T0*log(drand48()));
+				p_i.x2 = sqrt(-m*k_b*T0*log(drand48()));
+				p_i.x3 = sqrt(-m*k_b*T0*log(drand48()));		
 				p_i.x1 *= drand48() > 1./2  ? -1 : +1;
 				p_i.x2 *= drand48() > 1./2  ? -1 : +1;
 				p_i.x3 *= drand48() > 1./2  ? -1 : +1;	
@@ -101,6 +113,50 @@ namespace GasSimulation
 			}
 		}
 
+		void Simulation()
+		{
+			std::ofstream outputXYZ;
+			std::ofstream outputOUT;
+			outputXYZ.open(XYZ_FILE, std::ios::trunc);
+			outputOUT.open(OUT_FILE, std::ios::trunc);
+			t = 0;
+			for(int s = 0; s < s_d; ++s)
+			{
+				E_k = 0;
+				P = 0;
+				for(int i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2);
+					r[i] = r[i] + p[i]*(tau/m);
+					E_k += pow(p[i].Norm(),2)/(2*m);
+					P += F[i].Norm();
+				}
+				if(s % s_out == 0)
+				{
+					T_temp = 2/(3*N*k_b)*E_k;
+					E_tot = E_k + V;
+					t += s*tau;
+					P /= (4*M_PI*pow(L,2));
+					outputOUT << t << " " << V  << " " << E_k << " " << E_tot << " " << T_temp << " " << P << "\n";
+				}
+				if(s % s_xyz == 0)
+				{
+					for(auto r_i : r)
+						outputXYZ << r_i;
+					outputXYZ << "\n\n";		
+				}
+				CalculatePotentialAndForces();
+				for(int i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2); 
+				}
+
+			}
+			outputXYZ.close();	
+			outputOUT.close();
+		}
+
+		
 		void FlushToFiles()
 		{
 			std::ofstream output;

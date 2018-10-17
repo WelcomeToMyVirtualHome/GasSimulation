@@ -16,5 +16,8 @@ int main()
 	gas.CalculateInitialMomentum(); 
 	gas.CalculatePotentialAndForces();
 	gas.FlushToFiles();
+
+
+	gas.Simulation();
 	return 1;
 }
