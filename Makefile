@@ -1,5 +1,5 @@
 CXX=g++
-CXXFLAGS=-std=c++11 -Wall -pedantic
+CXXFLAGS=-std=c++11 -Wall -pedantic -O3
 
 GasSimulation:	main.o
 		$(CXX) -o GasSimulation main.o $(CXXFLAGS) $(LIBS)
