@@ -1,4 +1,8 @@
 ## Argon gas simulation
 Project for Computer Methods of Simulation
 
-Work in progress
+Programme generates files with positions of particles and gas parameters.
+
+To animate type in console: "gnuplot animate.dem"
+
+#Work in progress
