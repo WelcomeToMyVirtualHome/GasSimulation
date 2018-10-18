@@ -16,7 +16,13 @@ namespace GasSimulation
 	class Gas
 	{
 	public:
-		Gas() { srand48(time(NULL)); }
+		Gas() 
+		{ 
+			srand48(time(NULL));
+			F.resize((size_t)N*(N-1)/2); 
+			r.reserve(N);
+			p.resize(N);
+		}
 		Utils::BaseVector<T> base;
 		const int n = 5; // number of particles in one dimension
 		const int N = (int)pow(n,3); // number of all particles
@@ -29,7 +35,7 @@ namespace GasSimulation
 		const T L = 2.3; // [nm]
 		const T f = 10000;
 		const T tau = 0.01; // dt [ps]
-		const int s_d = 1000; // number of iterations of simulation
+		const int s_d = 100000; // number of iterations of simulation
 		const int s_0 = 1000; 
 		const int s_xyz = 10; // xyz.dat: positions saved every 10 iterations
 		const int s_out = 100; // out.dat: info saved every 100 iterations
@@ -52,7 +58,6 @@ namespace GasSimulation
 		void CalculateInitialPositions()
 		{	
 			Utils::Vector<T> r_i;
-			r.reserve(N);
 			for(int i2 = 0; i2 < n; ++i2)
 			{
 				for(int i1 = 0; i1 < n; ++i1)
@@ -71,7 +76,6 @@ namespace GasSimulation
 		
 		void CalculateInitialMomentum()	
 		{
-			p.resize(N);
 			Utils::Vector<T> p_sum;
 			for(int i = 0; i < N; ++i)
 			{
@@ -93,7 +97,6 @@ namespace GasSimulation
 
 		void CalculatePotentialAndForces()
 		{
-			F.resize((size_t)N*(N-1)/2);
 			V = 0;
 			for(int i = 0; i < N; ++i)
 			{
@@ -115,6 +118,7 @@ namespace GasSimulation
 
 		void Simulation()
 		{
+			std::ios_base::sync_with_stdio(false);
 			std::ofstream outputXYZ;
 			std::ofstream outputOUT;
 			outputXYZ.open(XYZ_FILE, std::ios::trunc);
@@ -150,7 +154,6 @@ namespace GasSimulation
 				{
 					p[i] = p[i] + F[i]*(tau/2); 
 				}
-
 			}
 			outputXYZ.close();	
 			outputOUT.close();
