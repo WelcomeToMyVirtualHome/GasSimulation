@@ -49,11 +49,12 @@ namespace GasSimulation
 		T P;
 		T t;
 
-		const char* R_FILE = "r.dat"; // initial positions
-		const char* P_FILE = "p.dat"; // initial momentums
-		const char* F_FILE = "F.dat"; // initial forces
-		const char* XYZ_FILE = "xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
-		const char* OUT_FILE = "out.dat"; // format "t V E_k E_tot T P"
+		const char* PARAMS_FILE = "./Data/params.dat"; // parameters
+		const char* R_FILE = "./Data/r.dat"; // initial positions
+		const char* P_FILE = "./Data/p.dat"; // initial momentums
+		const char* F_FILE = "./Data/F.dat"; // initial forces
+		const char* XYZ_FILE = "./Data/xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
+		const char* OUT_FILE = "./Data/out.dat"; // format "t V E_k E_tot T P"
 
 		void CalculateInitialPositions()
 		{	
@@ -163,17 +164,21 @@ namespace GasSimulation
 		void FlushToFiles()
 		{
 			std::ofstream output;
-			output.open(R_FILE);
+			output.open(PARAMS_FILE, std::ios::trunc);
+			output << n<<'\n'<<m<<'\n'<<epsilon<<'\n'<<R<<'\n'<<f<<'\n'<<L<<'\n'<<a<<'\n'<<T0<<'\n'<<tau<<'\n'<<s_0<<'\n'<<s_d<<'\n'<<s_out<<'\n'<<s_xyz;
+			output.close();
+
+			output.open(R_FILE, std::ios::trunc);
 			for(auto r_i : r)
 				output << r_i;
 			output.close();
 
-			output.open(P_FILE);
+			output.open(P_FILE, std::ios::trunc);
 			for(auto p_i : p)
 				output << p_i;
 			output.close();
 			
-			output.open(F_FILE);
+			output.open(F_FILE, std::ios::trunc);
 			for(auto F_i : F)
 				output << F_i;
 			output.close();
