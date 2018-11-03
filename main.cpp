@@ -5,12 +5,13 @@
 int main()
 {
 	GasSimulation::Gas<double> gas;
-	Utils::BaseVector<double> base(Utils::Vector<double>(gas.a,0,0),Utils::Vector<double>(gas.a/2,gas.a*sqrt(3)/2,0),Utils::Vector<double>(gas.a/2,gas.a*sqrt(3)/6,gas.a*sqrt(2.f/3)));
-	gas.base = base;	
+	gas.SetParams(5, 1000., 0.38, 2.3);
 	gas.CalculateInitialPositions();
 	gas.CalculateInitialMomentum(); 
 	gas.CalculatePotentialAndForces();
 	gas.FlushToFiles();
+	
 	gas.Simulation();
+	
 	return 1;
 }

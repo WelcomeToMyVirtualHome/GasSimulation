@@ -22,26 +22,32 @@ namespace GasSimulation
 			F.resize((size_t)N*(N-1)/2); 
 			r.reserve(N);
 			p.resize(N);
+			Utils::BaseVector<T> n_base(
+				Utils::Vector<T>(a,0,0),
+				Utils::Vector<T>(a/2,a*std::sqrt(3)/2,0),
+				Utils::Vector<T>(a/2,a*std::sqrt(3)/6,a*std::sqrt(2.f/3)));
+			base = n_base;	
 		}
 		Utils::BaseVector<T> base;
-		const int n = 5; // number of particles in one dimension
-		const int N = (int)pow(n,3); // number of all particles
-		const T T0 = 100; // [K]
+		size_t n = 5; // number of particles in one dimension
+		size_t N = (int)pow(n,3); // number of all particles
+		T T0 = 0; // [K]
 		const T m = 39.948; // [au]
 		const T k_b = 0.00831;
-		const T a = 0.38; // [um]
+		T a = 0.38; // [um]
 		const T epsilon = 1;
 		const T R = 0.38; // [nm]
-		const T L = 2.3; // [nm]
+		T L = 2.3; // [nm]
 		const T f = 10000;
-		const T tau = 0.01; // dt [ps]
-		const int s_d = 100000; // number of iterations of simulation
-		const int s_0 = 1000; 
-		const int s_xyz = 10; // xyz.dat: positions saved every 10 iterations
-		const int s_out = 100; // out.dat: info saved every 100 iterations
+		const T tau = 0.001; // dt [ps]
+		const size_t s_d = 1000; // number of iterations of simulation
+		const size_t s_0 = 1000; 
+		const size_t s_xyz = 10; // xyz.dat: positions saved every 10 iterations
+		const size_t s_out = 100; // out.dat: info saved every 100 iterations
 		std::vector<Utils::Vector<T>> r;
 		std::vector<Utils::Vector<T>> p;
 		std::vector<Utils::Vector<T>> F;
+		std::vector<Utils::Vector<T>> F_s;
 		T V;
 		T T_temp;
 		T E_k;
@@ -56,29 +62,44 @@ namespace GasSimulation
 		const char* XYZ_FILE = "./Data/xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
 		const char* OUT_FILE = "./Data/out.dat"; // format "t V E_k E_tot T P"
 
+		void SetParams(size_t n_n, T n_T0, T n_a, T n_L)
+		{
+			n = n_n;
+			T0 = n_T0;
+			a = n_a;
+			L = n_L;
+
+			N = Utils::f_pow<size_t>(n,3);
+			F.clear();
+			F_s.clear();
+			r.clear();
+			p.clear();
+
+			F.resize(N); 
+			F_s.resize(N); 
+			r.resize(N);
+			p.resize(N);
+
+			Utils::BaseVector<T> n_base(
+				Utils::Vector<T>(a,0,0),
+				Utils::Vector<T>(a/2,a*std::sqrt(3)/2,0),
+				Utils::Vector<T>(a/2,a*std::sqrt(3)/6,a*std::sqrt(2.f/3)));
+			base = n_base;	
+		}
+
 		void CalculateInitialPositions()
 		{	
-			Utils::Vector<T> r_i;
-			for(int i2 = 0; i2 < n; ++i2)
-			{
-				for(int i1 = 0; i1 < n; ++i1)
-				{
-					for(int i0 = 0; i0 < n; ++i0)
-					{
-						Utils::Vector<T> r0 = base.b0*(double)(i0 - (n-1)/2); 
-						Utils::Vector<T> r1 = base.b1*(double)(i1 - (n-1)/2); 
-						Utils::Vector<T> r2 = base.b2*(double)(i2 - (n-1)/2); 
-						r_i = r0 + r1 + r2;
-						r.push_back(r_i);
-					}
-				}	
-			}
+			int index = 0;
+			for(size_t i2 = 0; i2 < n; ++i2)
+				for(size_t i1 = 0; i1 < n; ++i1)
+					for(size_t i0 = 0; i0 < n; ++i0)
+						r[index++] = base.b0*(i0 - (T)(n-1)/2) +base.b1*(i1 - (T)(n-1)/2) + base.b2*(i2 - (T)(n-1)/2); 
 		}
 		
 		void CalculateInitialMomentum()	
 		{
 			Utils::Vector<T> p_sum;
-			for(int i = 0; i < N; ++i)
+			for(size_t i = 0; i < N; ++i)
 			{
 				Utils::Vector<T> p_i;
 				p_i.x1 = sqrt(-m*k_b*T0*log(drand48()));
@@ -99,13 +120,14 @@ namespace GasSimulation
 		void CalculatePotentialAndForces()
 		{
 			V = 0;
-			for(int i = 0; i < N; ++i)
+			P = 0;
+			for(size_t i = 0; i < N; ++i){
+				F[i].Reset();
+			}
+
+			for(size_t i = 0; i < N; ++i)
 			{
-				T r_i = r[i].Norm();
-				T V_s = r_i < L ? 0 : 0.5*f*pow(r_i - L,2);	
-				r_i < L ? F[i] = Utils::Vector<T>() : F[i] = F[i] + r[i]*(f/r_i)*(L - r_i);
-				V += V_s;
-				for(int j = 0; j < i && i > 0; ++j)
+				for(size_t j = 0; j < i && i > 0; ++j)
 				{					
 					T r_ij = r[i].Dist(r[j]);
 					T V_p = epsilon*(pow(R/r_ij,12)-2*pow(R/r_ij,6));
@@ -114,6 +136,11 @@ namespace GasSimulation
 					F[i] = F[i] + (r[i] + r[j]*(-1)) * multiplier;
 					F[j] = F[j] + (r[j] + r[i]*(-1)) * multiplier;
 				}
+				T r_i = r[i].Norm();
+				T V_s = r_i < L ? 0 : 0.5*f*pow(r_i - L,2);	
+				r_i < L ? F_s[i] = Utils::Vector<T>() : F_s[i] = r[i]*(f/r_i)*(L - r_i);
+				V += V_s;
+				F[i] = F[i] + F_s[i];
 			}
 		}
 
@@ -125,11 +152,11 @@ namespace GasSimulation
 			outputXYZ.open(XYZ_FILE, std::ios::trunc);
 			outputOUT.open(OUT_FILE, std::ios::trunc);
 			t = 0;
-			for(int s = 0; s < s_d; ++s)
+			for(size_t s = 0; s < s_d; ++s)
 			{
 				E_k = 0;
 				P = 0;
-				for(int i = 0; i < N; ++i)
+				for(size_t i = 0; i < N; ++i)
 				{
 					p[i] = p[i] + F[i]*(tau/2);
 					r[i] = r[i] + p[i]*(tau/m);
@@ -151,7 +178,7 @@ namespace GasSimulation
 					outputXYZ << "\n\n";		
 				}
 				CalculatePotentialAndForces();
-				for(int i = 0; i < N; ++i)
+				for(size_t i = 0; i < N; ++i)
 				{
 					p[i] = p[i] + F[i]*(tau/2); 
 				}
