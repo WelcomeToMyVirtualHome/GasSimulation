@@ -147,7 +147,7 @@ namespace GasSimulation
 			}
 		}
 
-		void Simulation()
+		void Simulation(T n_tau, T time)
 		{
 			CalculateInitialPositions();
 			CalculateInitialMomentum(); 
@@ -156,6 +156,8 @@ namespace GasSimulation
 			std::ofstream outputOUT;
 			outputXYZ.open(XYZ_FILE, std::ios::trunc);
 			outputOUT.open(OUT_FILE, std::ios::trunc);
+			tau = n_tau;
+			s_d = (size_t)(time/tau);
 			for(size_t s = 0; s < s_d; ++s)
 			{
 				E_k = 0;
@@ -240,7 +242,7 @@ namespace GasSimulation
 			output.close();
 		}
 
-		void CrystalConstantTest(T a1, T a2, size_t numberOfPoints)
+		void CrystalConstantOptimization(T a1, T a2, size_t numberOfPoints)
 		{
 			std::ofstream output;
 			output.open(LACO_FILE, std::ios::trunc);
@@ -272,6 +274,7 @@ namespace GasSimulation
 				}
 			T a_min = a1 + (arg_min+1)*delta_a;
 			std::cout << "V_min= " << V_min << " a_min= " << a_min << '\n';
+			a = a_min;
 		}
 		
 		void FlushToFiles()
