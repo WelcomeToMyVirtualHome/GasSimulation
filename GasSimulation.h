@@ -7,6 +7,7 @@
 #include <ctime>
 #include <stdlib.h>
 #include <vector>
+#include <limits>
 
 #include "Utils.h"
 
@@ -32,15 +33,15 @@ namespace GasSimulation
 		size_t n = 5; // number of particles in one dimension
 		size_t N = (int)pow(n,3); // number of all particles
 		T T0 = 0; // [K]
+		T a = 0.38; // [um]
+		T L = 2.3; // [nm]
+		T tau = 0.001; // dt [ps]
 		const T m = 39.948; // [au]
 		const T k_b = 0.00831;
-		T a = 0.38; // [um]
 		const T epsilon = 1;
 		const T R = 0.38; // [nm]
-		T L = 2.3; // [nm]
 		const T f = 10000;
-		const T tau = 0.001; // dt [ps]
-		const size_t s_d = 1000; // number of iterations of simulation
+		size_t s_d = 1000; // number of iterations of simulation
 		const size_t s_0 = 1000; 
 		const size_t s_xyz = 10; // xyz.dat: positions saved every 10 iterations
 		const size_t s_out = 100; // out.dat: info saved every 100 iterations
@@ -61,6 +62,8 @@ namespace GasSimulation
 		const char* F_FILE = "./Data/F.dat"; // initial forces
 		const char* XYZ_FILE = "./Data/xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
 		const char* OUT_FILE = "./Data/out.dat"; // format "t V E_k E_tot T P"
+		const char* EVAR_FILE = "./Data/E_var.dat"; // energy variance in function of tau
+		const char* LACO_FILE = "./Data/lattice_constant_var.dat"; // potential energy in function of lattice constant
 
 		void SetParams(size_t n_n, T n_T0, T n_a, T n_L)
 		{
@@ -102,9 +105,9 @@ namespace GasSimulation
 			for(size_t i = 0; i < N; ++i)
 			{
 				Utils::Vector<T> p_i;
-				p_i.x1 = sqrt(-m*k_b*T0*log(drand48()));
-				p_i.x2 = sqrt(-m*k_b*T0*log(drand48()));
-				p_i.x3 = sqrt(-m*k_b*T0*log(drand48()));		
+				p_i.x1 = std::sqrt(-m*k_b*T0*std::log(drand48()));
+				p_i.x2 = std::sqrt(-m*k_b*T0*std::log(drand48()));
+				p_i.x3 = std::sqrt(-m*k_b*T0*std::log(drand48()));		
 				p_i.x1 *= drand48() > 1./2  ? -1 : +1;
 				p_i.x2 *= drand48() > 1./2  ? -1 : +1;
 				p_i.x3 *= drand48() > 1./2  ? -1 : +1;	
@@ -130,14 +133,14 @@ namespace GasSimulation
 				for(size_t j = 0; j < i && i > 0; ++j)
 				{					
 					T r_ij = r[i].Dist(r[j]);
-					T V_p = epsilon*(pow(R/r_ij,12)-2*pow(R/r_ij,6));
+					T V_p = epsilon*(Utils::f_pow<T>(R/r_ij,12)-2*Utils::f_pow<T>(R/r_ij,6));
 					V += V_p;
-					T multiplier = ((pow(R/r_ij,12) - pow(R/r_ij,6)) * 12*epsilon*pow(r_ij,-2));
+					T multiplier = ((Utils::f_pow<T>(R/r_ij,12) - Utils::f_pow<T>(R/r_ij,6)) * 12*epsilon/Utils::f_pow<T>(r_ij,2));
 					F[i] = F[i] + (r[i] + r[j]*(-1)) * multiplier;
 					F[j] = F[j] + (r[j] + r[i]*(-1)) * multiplier;
 				}
 				T r_i = r[i].Norm();
-				T V_s = r_i < L ? 0 : 0.5*f*pow(r_i - L,2);	
+				T V_s = r_i < L ? 0 : 0.5*f*Utils::f_pow<T>(r_i - L,2);	
 				r_i < L ? F_s[i] = Utils::Vector<T>() : F_s[i] = r[i]*(f/r_i)*(L - r_i);
 				V += V_s;
 				F[i] = F[i] + F_s[i];
@@ -146,30 +149,29 @@ namespace GasSimulation
 
 		void Simulation()
 		{
-			std::ios_base::sync_with_stdio(false);
+			CalculateInitialPositions();
+			CalculateInitialMomentum(); 
+			CalculatePotentialAndForces();
 			std::ofstream outputXYZ;
 			std::ofstream outputOUT;
 			outputXYZ.open(XYZ_FILE, std::ios::trunc);
 			outputOUT.open(OUT_FILE, std::ios::trunc);
-			t = 0;
 			for(size_t s = 0; s < s_d; ++s)
 			{
 				E_k = 0;
-				P = 0;
 				for(size_t i = 0; i < N; ++i)
 				{
 					p[i] = p[i] + F[i]*(tau/2);
 					r[i] = r[i] + p[i]*(tau/m);
-					E_k += pow(p[i].Norm(),2)/(2*m);
+					E_k += Utils::f_pow<T>(p[i].Norm(),2)/(2*m);
 					P += F[i].Norm();
 				}
 				if(s % s_out == 0)
 				{
 					T_temp = 2/(3*N*k_b)*E_k;
 					E_tot = E_k + V;
-					t += s*tau;
-					P /= (4*M_PI*pow(L,2));
-					outputOUT << t << " " << V  << " " << E_k << " " << E_tot << " " << T_temp << " " << P << "\n";
+					P /= (4*M_PI*Utils::f_pow<T>(L,2));
+					outputOUT << s*tau << " " << V  << " " << E_k << " " << E_tot << " " << T_temp << " " << P << "\n";
 				}
 				if(s % s_xyz == 0)
 				{
@@ -187,6 +189,90 @@ namespace GasSimulation
 			outputOUT.close();
 		}
 
+		T SimulationEnergyVariance(T tau, T time)
+		{
+			CalculateInitialPositions();
+			CalculateInitialMomentum(); 
+			CalculatePotentialAndForces();
+			T E_total = 0;
+			std::cout << tau << " " << time << "\n";
+			s_d = (size_t)(time/tau);
+			std::vector<T> E_n(s_d);
+			std::cout << s_d << "\n";
+			for(size_t s = 0; s < s_d; ++s)
+			{
+				E_k = 0;
+				for(size_t i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2);
+					r[i] = r[i] + p[i]*(tau/m);
+					E_k += pow(p[i].Norm(),2)/(2*m);
+					P += F[i].Norm();
+				}
+				
+				T_temp = 2/(3*N*k_b)*E_k;
+				E_n[s] = E_k + V;
+				E_total += E_n[s]; 
+				CalculatePotentialAndForces();
+				for(size_t i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2); 
+				}
+			}
+			T E_var = 0;
+			E_total /= s_d;
+			for(auto e : E_n)
+				E_var = Utils::f_pow<T>(E_total-e,2);
+			return E_var/s_d;
+		}
+
+		void StabilityTest(T tau1, T tau2, size_t numberOfPoints, T time)
+		{
+			std::ofstream output;
+			output.open(EVAR_FILE, std::ios::trunc);
+			T delta_tau = std::abs(tau1 - tau2)/numberOfPoints;
+			tau = tau1;
+			for(size_t i = 0; i < numberOfPoints; ++i)
+			{
+				output << tau << " " << SimulationEnergyVariance(tau,time) << "\n";
+				tau += delta_tau;
+			}
+			output.close();
+		}
+
+		void CrystalConstantTest(T a1, T a2, size_t numberOfPoints)
+		{
+			std::ofstream output;
+			output.open(LACO_FILE, std::ios::trunc);
+			T delta_a = std::abs(a1 - a2)/numberOfPoints;
+			a = a1;
+			std::vector<T> V_n(numberOfPoints);
+			for(size_t i = 0; i < numberOfPoints; ++i)
+			{
+				Utils::BaseVector<T> n_base(
+					Utils::Vector<T>(a,0,0),
+					Utils::Vector<T>(a/2,a*std::sqrt(3)/2,0),
+					Utils::Vector<T>(a/2,a*std::sqrt(3)/6,a*std::sqrt(2.f/3)));
+				base = n_base;	
+				CalculateInitialPositions();
+				CalculateInitialMomentum(); 
+				CalculatePotentialAndForces();
+				V_n[i] = V;
+				output << a << " " << V << "\n";
+				a += delta_a;
+			}
+			output.close();
+
+			T V_min = std::numeric_limits<double>::max();
+			size_t arg_min = 0;
+			for(size_t i = 0; i < numberOfPoints; ++i)
+				if(V_n[i] < V_min){
+					V_min = V_n[i];
+					arg_min = i;
+				}
+			T a_min = a1 + (arg_min+1)*delta_a;
+			std::cout << "V_min= " << V_min << " a_min= " << a_min << '\n';
+		}
 		
 		void FlushToFiles()
 		{
