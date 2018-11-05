@@ -49,12 +49,11 @@ namespace GasSimulation
 		std::vector<Utils::Vector<T>> p;
 		std::vector<Utils::Vector<T>> F;
 		std::vector<Utils::Vector<T>> F_s;
-		T V;
-		T T_temp;
-		T E_k;
-		T E_tot;
-		T P;
-		T t;
+		T V = 0;
+		T T_temp = 0;
+		T E_k = 0;
+		T E_tot = 0;
+		T P = 0;
 
 		const char* PARAMS_FILE = "./Data/params.dat"; // parameters
 		const char* R_FILE = "./Data/r.dat"; // initial positions
@@ -64,6 +63,7 @@ namespace GasSimulation
 		const char* OUT_FILE = "./Data/out.dat"; // format "t V E_k E_tot T P"
 		const char* EVAR_FILE = "./Data/E_var.dat"; // energy variance in function of tau
 		const char* LACO_FILE = "./Data/lattice_constant_var.dat"; // potential energy in function of lattice constant
+		const char* PT_FILE = "./Data/PT.dat";
 
 		void SetParams(size_t n_n, T n_T0, T n_a, T n_L)
 		{
@@ -88,6 +88,12 @@ namespace GasSimulation
 				Utils::Vector<T>(a/2,a*std::sqrt(3)/2,0),
 				Utils::Vector<T>(a/2,a*std::sqrt(3)/6,a*std::sqrt(2.f/3)));
 			base = n_base;	
+
+			V = 0;
+			T_temp = 0;
+			E_k = 0;
+			E_tot = 0;
+			P = 0;
 		}
 
 		void CalculateInitialPositions()
@@ -275,6 +281,56 @@ namespace GasSimulation
 			T a_min = a1 + (arg_min+1)*delta_a;
 			std::cout << "V_min= " << V_min << " a_min= " << a_min << '\n';
 			a = a_min;
+		}
+
+		void PressureTemperatureMonitor(T T1, T T2, size_t count, T time, T tau)
+		{
+			std::ofstream outputT, outputP, outputPT;
+			outputPT.open(PT_FILE, std::ios::trunc);
+			T delta_T = (T2-T1)/count;
+			for(T t = T1; t < T2; t += delta_T)
+			{
+				T0 = t;
+				CalculateInitialPositions();
+				CalculateInitialMomentum(); 
+				CalculatePotentialAndForces();
+				char buffer [50];
+				sprintf(buffer, "./Data/T_T=%d.dat", (int)T0);
+				outputT.open(std::string(buffer), std::ios::trunc);
+				sprintf(buffer, "./Data/P_T=%d.dat", (int)T0);
+				outputP.open(std::string(buffer), std::ios::trunc);
+				s_d = (size_t)(time/tau);
+				T T_mean = 0;
+				T P_mean = 0;
+				for(size_t s = 0; s < s_d; ++s)
+				{
+					E_k = 0;
+					for(size_t i = 0; i < N; ++i)
+					{
+						p[i] = p[i] + F[i]*(tau/2);
+						r[i] = r[i] + p[i]*(tau/m);
+						E_k += pow(p[i].Norm(),2)/(2*m);
+						P += F_s[i].Norm();
+					}
+					T_temp = 2/(3*N*k_b)*E_k;
+					P /= (4*M_PI*Utils::f_pow<T>(L,2));
+					T t = s*tau;
+					outputP << t << " " << P << "\n";
+					outputT << t << " " << T_temp << "\n"; 
+				
+					T_mean += T_temp;
+					P_mean += P;
+					CalculatePotentialAndForces();
+					for(size_t i = 0; i < N; ++i)
+					{
+						p[i] = p[i] + F[i]*(tau/2); 
+					}
+				}
+				outputPT << P_mean/s_d << " " << T_mean/s_d << "\n";
+				outputT.close();
+				outputP.close();
+			}
+			outputPT.close();	
 		}
 		
 		void FlushToFiles()
