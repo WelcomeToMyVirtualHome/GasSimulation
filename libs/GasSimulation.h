@@ -55,22 +55,22 @@ namespace GasSimulation
 		T E_tot = 0;
 		T P = 0;
 
-		const char* PARAMS_FILE = "./Data/params.dat"; // parameters
-		const char* R_FILE = "./Data/r.dat"; // initial positions
-		const char* P_FILE = "./Data/p.dat"; // initial momentums
-		const char* F_FILE = "./Data/F.dat"; // initial forces
-		const char* XYZ_FILE = "./Data/xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
-		const char* OUT_FILE = "./Data/out.dat"; // format "t V E_k E_tot T P"
-		const char* EVAR_FILE = "./Data/E_var.dat"; // energy variance in function of tau
-		const char* LACO_FILE = "./Data/lattice_constant_var.dat"; // potential energy in function of lattice constant
-		const char* PT_FILE = "./Data/PT.dat";
+		const char* PARAMS_FILE = "../Data/params.dat"; // parameters
+		const char* R_FILE = "../Data/r.dat"; // initial positions
+		const char* P_FILE = "../Data/p.dat"; // initial momentums
+		const char* F_FILE = "../Data/F.dat"; // initial forces
+		const char* XYZ_FILE = "../Data/xyz.dat"; // format "x y z", every chunk separated in file by 2 blank lines 
+		const char* OUT_FILE = "../Data/out.dat"; // format "t V E_k E_tot T P"
+		const char* EVAR_FILE = "../Data/E_var.dat"; // energy variance in function of tau
+		const char* LACO_FILE = "../Data/lattice_constant.dat"; // potential energy in function of lattice constant
+		const char* PT_FILE = "../Data/PT.dat";
 
-		void SetParams(size_t n_n, T n_T0, T n_a, T n_L)
+		void SetParams(size_t n_n, T n_T0, T n_a)
 		{
 			n = n_n;
 			T0 = n_T0;
 			a = n_a;
-			L = n_L;
+			L = 1.22*n_a*(n_n-1);
 
 			N = Utils::f_pow<size_t>(n,3);
 			F.clear();
@@ -203,10 +203,8 @@ namespace GasSimulation
 			CalculateInitialMomentum(); 
 			CalculatePotentialAndForces();
 			T E_total = 0;
-			std::cout << tau << " " << time << "\n";
 			s_d = (size_t)(time/tau);
 			std::vector<T> E_n(s_d);
-			std::cout << s_d << "\n";
 			for(size_t s = 0; s < s_d; ++s)
 			{
 				E_k = 0;
@@ -281,6 +279,42 @@ namespace GasSimulation
 			T a_min = a1 + (arg_min+1)*delta_a;
 			std::cout << "V_min= " << V_min << " a_min= " << a_min << '\n';
 			a = a_min;
+		}
+
+		void Melting(T T1, T T2, T time, T n_tau)
+		{
+			T0 = T1;
+			CalculateInitialPositions();
+			CalculateInitialMomentum(); 
+			CalculatePotentialAndForces();
+			std::ofstream outputT;
+			char buffer [50];
+			sprintf(buffer, "./Data/melt_T0=%d.dat", (int)T0);
+			outputT.open(std::string(buffer), std::ios::trunc);
+			tau = n_tau;
+			s_d = (size_t)(time/tau);
+			T delta_T = (T1-T2)/s_d;
+			for(size_t s = 0; s < s_d; ++s)
+			{
+				E_k = 0;
+				for(size_t i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2);
+					r[i] = r[i] + p[i]*(tau/m);
+					E_k += Utils::f_pow<T>(p[i].Norm(),2)/(2*m);
+					P += F[i].Norm();
+				}
+				T0 += delta_T;
+				T_temp = 2/(3*N*k_b)*E_k;
+				E_tot = E_k + V;
+				outputT << s*tau << " " << T_temp << "\n";
+				CalculatePotentialAndForces();
+				for(size_t i = 0; i < N; ++i)
+				{
+					p[i] = p[i] + F[i]*(tau/2); 
+				}
+			}
+			outputT.close();	
 		}
 
 		void PressureTemperatureMonitor(T T1, T T2, size_t count, T time, T tau)
