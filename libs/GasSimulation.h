@@ -70,7 +70,7 @@ namespace GasSimulation
 			n = n_n;
 			T0 = n_T0;
 			a = n_a;
-			L = 1.22*n_a*(n_n-1);
+			L = std::sqrt(2)*n_a*(n_n-1);
 
 			N = Utils::f_pow<size_t>(n,3);
 			F.clear();
@@ -289,7 +289,7 @@ namespace GasSimulation
 			CalculatePotentialAndForces();
 			std::ofstream outputT;
 			char buffer [50];
-			sprintf(buffer, "./Data/melt_T0=%d.dat", (int)T0);
+			sprintf(buffer, "../Data/melt_T0=%d.dat", (int)T0);
 			outputT.open(std::string(buffer), std::ios::trunc);
 			tau = n_tau;
 			s_d = (size_t)(time/tau);
@@ -322,16 +322,16 @@ namespace GasSimulation
 			std::ofstream outputT, outputP, outputPT;
 			outputPT.open(PT_FILE, std::ios::trunc);
 			T delta_T = (T2-T1)/count;
-			for(T t = T1; t < T2; t += delta_T)
+			for(T t = T1; t <= T2; t += delta_T)
 			{
 				T0 = t;
 				CalculateInitialPositions();
 				CalculateInitialMomentum(); 
 				CalculatePotentialAndForces();
 				char buffer [50];
-				sprintf(buffer, "./Data/T_T=%d.dat", (int)T0);
+				sprintf(buffer, "../Data/T_T=%d.dat", (int)T0);
 				outputT.open(std::string(buffer), std::ios::trunc);
-				sprintf(buffer, "./Data/P_T=%d.dat", (int)T0);
+				sprintf(buffer, "../Data/P_T=%d.dat", (int)T0);
 				outputP.open(std::string(buffer), std::ios::trunc);
 				s_d = (size_t)(time/tau);
 				T T_mean = 0;

@@ -16,6 +16,6 @@ int main(int argc, char **argv)
 	gas.SetParams(5, 2000., 0.38);
 	gas.CrystalConstantOptimization(0.35, 0.40, 1000);
 
-	gas.PressureTemperatureMonitor(500, 2500, 4, 5., 0.001);
+	gas.PressureTemperatureMonitor(500, 2500, 4, 8., 0.001);
 	return 1;
 }
