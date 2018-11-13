@@ -1,4 +1,4 @@
-# Argon gas simulation
+# Gas simulation
 Project for Computer Methods of Simulation
 
 Requires freeglut3 and freelglut3-dev packages
